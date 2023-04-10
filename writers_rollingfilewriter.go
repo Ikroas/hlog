@@ -25,6 +25,7 @@
 package hlog
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -683,6 +684,14 @@ type rollingFileWriterTime struct {
 	currentTimeFileName string
 }
 
+func CheckFileExist(fileName string) bool {
+	_, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 func NewRollingFileWriterTime(fpath string, atype rollingArchiveType, apath string, maxr int,
 	timePattern string, namemode rollingNameMode, archiveExploded bool, fullName bool) (*rollingFileWriterTime, error) {
 
@@ -690,7 +699,22 @@ func NewRollingFileWriterTime(fpath string, atype rollingArchiveType, apath stri
 	if err != nil {
 		return nil, err
 	}
-	rws := &rollingFileWriterTime{rw, timePattern, ""}
+	currentTimeFileName := ""
+	old_file_path := rw.currentDirPath + rw.fileName
+	if CheckFileExist(old_file_path) {
+		old_file, err := os.Open(old_file_path)
+		if err != nil {
+			return nil, err
+		}
+		defer old_file.Close()
+		scanner := bufio.NewScanner(old_file)
+		if scanner.Scan() {
+			line := scanner.Text()
+			currentTimeFileName = line[:10]
+			rw.currentName = rw.fileName
+		}
+	}
+	rws := &rollingFileWriterTime{rw, timePattern, currentTimeFileName}
 	rws.self = rws
 	return rws, nil
 }
